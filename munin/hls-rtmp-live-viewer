@@ -1,0 +1,165 @@
+#!/usr/bin/python
+import sys
+import os
+import re
+import urllib
+import datetime
+import itertools
+import subprocess
+import collections
+
+# TODO: read from plugin-config
+rtmp_stat_url = "http://127.0.0.1/stats/rtmp"
+hlsAccessLog = "/var/log/nginx/access.log"
+hls_playlists = ["/tmp/hls/bla.m3u8"]
+hls_fragment_size = 10 # seconds
+hls_fragment_windows = 60 # seconds
+
+##### helper methods #####
+# see: http://stackoverflow.com/a/260433/1659732
+def reversed_lines(file):
+	"Generate the lines of file in reverse order."
+	part = ''
+	for block in reversed_blocks(file):
+		for c in reversed(block):
+			if c == '\n' and part:
+				yield part[::-1]
+				part = ''
+			part += c
+	if part: yield part[::-1]
+
+
+def reversed_blocks(file, blocksize=4096):
+	"Generate blocks of file's contents in reverse order."
+	file.seek(0, os.SEEK_END)
+	here = file.tell()
+	while 0 < here:
+		delta = min(blocksize, here)
+		here -= delta
+		#print "read block from {0} to {1}".format(here, here+delta)
+		file.seek(here, os.SEEK_SET)
+		yield file.read(delta)
+
+
+# see: http://stackoverflow.com/a/4080021/1659732
+def parse_logdate(datestr):
+	month_abbreviations = {
+		'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
+		'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
+		'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+	}
+
+	year = int(datestr[7:11])
+	month = month_abbreviations[datestr[3:6]]
+	day = int(datestr[0:2])
+	hour = int(datestr[12:14])
+	minute = int(datestr[15:17])
+	second = int(datestr[18:20])
+	return datetime.datetime(year, month, day, hour, minute, second)
+
+
+##### numbercrunching methods #####
+def list_hls_streams():
+	for playlist in hls_playlists:
+		yield os.path.splitext(os.path.basename(playlist))[0]
+
+
+def count_hls_viewers():
+	# - 5s per fragment
+	# - live-viewer = less then 2 minutes behind = 2 * 60 / 5 = less then 24 fragments behind
+	# - find newest 24 fragments from m3u8's, choose oldest of them
+	# - count number of occurences of that snippet in the last 2 minutes worth of logs
+
+	# todo: explain the /2
+	hls_fragment_threshold = hls_fragment_windows / 2 / hls_fragment_size
+
+	interesting_segments = {}
+	for playlist in hls_playlists:
+		with open(playlist) as f:
+			# instanciate a generator that iterates lines in the file in inverse order
+			lines_generator = reversed_lines(f)
+
+			# wrap in an iterator that only passes non-empty- and non-comment-lines
+			interesting_lines = itertools.ifilter(lambda line: line != "\n" and line[0] != '#', lines_generator)
+			
+			# wrap in an iterator that only passes the hls_fragment_threshold'th interested line
+			last_interesting_lines = itertools.islice(interesting_lines, hls_fragment_threshold, hls_fragment_threshold+1)
+
+			# fetch that single line and store it
+			interesting_segments[os.path.basename(playlist)] = last_interesting_lines.next().strip()
+
+	#print interesting_segments
+	# regex to parse interesting parts of ngix access-log
+	exp = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "([A-Z]+) ([^ "]+) HTTP\/1.[01]" [0-9]{3}'
+
+	# compare timestamp
+	now = datetime.datetime.today()
+
+	# viewer-count per stream
+	viewer_counts = collections.Counter()
+
+	# open the access-log
+	with open(hlsAccessLog) as f:
+		# read through the lines backwards
+		for line in reversed_lines(f):
+			# parse line by line
+			(ip, ident, username, tstamp, method, path) = re.match(exp, line).groups()
+
+			# parse date
+			tstamp = parse_logdate(tstamp)
+
+			# calculate number of seconds this record is old
+			age = int((now - tstamp).total_seconds())
+			#print path, tstamp, age
+
+			# quit parsing when we reached the end of our window
+			if age > hls_fragment_windows:
+				break
+
+			# remove dir from path and keep filename
+			filename = os.path.basename(path)
+
+			for stream, segment in interesting_segments.iteritems():
+				if segment == filename:
+					viewer_counts[os.path.basename(stream)] += 1
+
+	return viewer_counts
+
+def list_rtmp_streams():
+	pass
+
+def count_rtmp_streams():
+	pass
+
+
+
+##### munin interface #####
+if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
+	print "yes"
+
+elif len(sys.argv) == 2 and sys.argv[1] == "config":
+	print 'graph_title Live RTMP/HLS Viewer'
+	print 'graph_vlabel count'
+	print 'graph_category nginx'
+
+	print 'rtmp.label RTMP-Viewer'
+	print 'rtmp.draw AREA'
+	print 'rtmp.type COUNTER'
+
+	for stream in list_hls_streams():
+		print 'hls-{0}.label HLS-Viewer ({0})'.format(stream)
+		print 'hls-{0}.draw AREA'.format(stream)
+		print 'hls-{0}.type COUNTER'.format(stream)
+
+	print 'graph_args --base 1000'
+
+else:
+	#rtmp
+	print "rtmp "+subprocess.check_output("netstat -tun | grep '31.172.30.138:1935' | wc -l", shell=True).strip()
+	#sock = urllib.urlopen(rtmp_stat_url)
+	#doc = minidom.parse(sock)
+	#print doc
+
+	hls_counts = count_hls_viewers();
+	for stream in list_hls_streams():
+		print 'hls-{0} {1}'.format(stream, hls_counts[stream])
