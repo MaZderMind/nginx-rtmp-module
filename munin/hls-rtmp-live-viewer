@@ -6,6 +6,7 @@ import os
 import re
 from glob import glob
 import urllib
+import xml.etree.ElementTree as ET
 import datetime
 import itertools
 import subprocess
@@ -141,6 +142,7 @@ def count_hls_viewers():
 			continue
 
 	#print interesting_segments
+
 	# regex to parse interesting parts of ngix access-log
 	exp = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "([A-Z]+) ([^ "]+) HTTP\/1.[01]" [0-9]{3}'
 
@@ -162,6 +164,7 @@ def count_hls_viewers():
 
 			# calculate number of seconds this record is old
 			age = int((now - tstamp).total_seconds())
+
 			#print path, tstamp, age
 
 			# quit parsing when we reached the end of our window
@@ -181,12 +184,42 @@ def count_hls_viewers():
 
 	return viewer_counts
 
+
+
 def list_rtmp_streams():
-	pass
+	sock = urllib.urlopen(rtmp_stat_url)
+	doc = ET.parse(sock).getroot()
 
-def count_rtmp_streams():
-	pass
+	# find all streams and yield their names
+	for stream in doc.findall('server/application/live/stream'):
+		yield stream.find('name').text
 
+def count_rtmp_viewers():
+	# viewer-count per stream
+	viewer_counts = collections.Counter()
+
+	sock = urllib.urlopen(rtmp_stat_url)
+	doc = ET.parse(sock).getroot()
+
+	# find all streams and yield their clients
+	for stream in doc.findall('server/application/live/stream'):
+		# name of the stream
+		streamname = stream.find('name').text
+
+		# find all clients connected to this stream
+		for client in stream.findall('client'):
+			# ignore local pull-relay
+			if client.find('flashver').text == 'ngx-local-relay':
+				continue
+
+			# ignore broadcastin clients
+			if not client.find('publishing') is None:
+				continue
+
+			# count a live-viewer
+			viewer_counts[streamname] += 1
+
+	return viewer_counts
 
 
 ##### munin interface #####
@@ -198,9 +231,10 @@ elif len(sys.argv) == 2 and sys.argv[1] == "config":
 	print 'graph_vlabel count'
 	print 'graph_category nginx'
 
-	print 'rtmp.label RTMP-Viewer'
-	print 'rtmp.draw AREA'
-	print 'rtmp.type COUNTER'
+	for stream in list_rtmp_streams():
+		print 'rtmp-{0}.label RTMP-Viewer ({0})'.format(stream)
+		print 'rtmp-{0}.draw AREA'.format(stream)
+		print 'rtmp-{0}.type COUNTER'.format(stream)
 
 	for stream in list_hls_streams():
 		print 'hls-{0}.label HLS-Viewer ({0})'.format(stream)
@@ -210,12 +244,10 @@ elif len(sys.argv) == 2 and sys.argv[1] == "config":
 	print 'graph_args --base 1000'
 
 else:
-	#rtmp
-	print "rtmp "+subprocess.check_output("netstat -tun | grep '31.172.30.138:1935' | wc -l", shell=True).strip()
-	#sock = urllib.urlopen(rtmp_stat_url)
-	#doc = minidom.parse(sock)
-	#print doc
+	counts = count_rtmp_viewers();
+	for stream in list_rtmp_streams():
+		print 'rtmp-{0} {1}'.format(stream, counts[stream])
 
-	hls_counts = count_hls_viewers();
+	counts = count_hls_viewers();
 	for stream in list_hls_streams():
-		print 'hls-{0} {1}'.format(stream, hls_counts[stream])
+		print 'hls-{0} {1}'.format(stream, counts[stream])
