@@ -1,6 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# munin maric configuration parameters
+#%# family=auto
+#%# capabilities=autoconf
+
 import sys
 import os
 import re
@@ -260,12 +264,12 @@ elif len(sys.argv) == 2 and sys.argv[1] == "config":
 
 	for stream in list_rtmp_streams():
 		print 'rtmp-{0}.label RTMP-Viewer ({0})'.format(stream)
-		print 'rtmp-{0}.draw AREA'.format(stream)
+		print 'rtmp-{0}.draw AREASTACK'.format(stream)
 		print 'rtmp-{0}.type COUNTER'.format(stream)
 
 	for stream in list_hls_streams():
 		print 'hls-{0}.label HLS-Viewer ({0})'.format(stream)
-		print 'hls-{0}.draw AREA'.format(stream)
+		print 'hls-{0}.draw AREASTACK'.format(stream)
 		print 'hls-{0}.type COUNTER'.format(stream)
 
 	print 'graph_args --base 1000'
