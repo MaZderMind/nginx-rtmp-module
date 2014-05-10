@@ -57,11 +57,21 @@ def parse_logdate(datestr):
 	second = int(datestr[18:20])
 	return datetime.datetime(year, month, day, hour, minute, second)
 
+def filebasename(path):
+	return os.path.splitext(os.path.basename(path))[0]
 
 ##### numbercrunching methods #####
 def list_hls_streams():
+	# iteratr over all configured playlists
 	for playlist in hls_playlists:
-		yield os.path.splitext(os.path.basename(playlist))[0]
+		# try to open the file
+		try:
+			with open(playlist):
+				# yep, can be read
+				yield filebasename(playlist)
+		except IOError:
+			# no, can't read it, ignore that file
+			continue
 
 
 def count_hls_viewers():
@@ -75,18 +85,23 @@ def count_hls_viewers():
 
 	interesting_segments = {}
 	for playlist in hls_playlists:
-		with open(playlist) as f:
-			# instanciate a generator that iterates lines in the file in inverse order
-			lines_generator = reversed_lines(f)
+		# try to open the file
+		try:
+			with open(playlist) as f:
+				# instanciate a generator that iterates lines in the file in inverse order
+				lines_generator = reversed_lines(f)
 
-			# wrap in an iterator that only passes non-empty- and non-comment-lines
-			interesting_lines = itertools.ifilter(lambda line: line != "\n" and line[0] != '#', lines_generator)
-			
-			# wrap in an iterator that only passes the hls_fragment_threshold'th interested line
-			last_interesting_lines = itertools.islice(interesting_lines, hls_fragment_threshold, hls_fragment_threshold+1)
+				# wrap in an iterator that only passes non-empty- and non-comment-lines
+				interesting_lines = itertools.ifilter(lambda line: line != "\n" and line[0] != '#', lines_generator)
 
-			# fetch that single line and store it
-			interesting_segments[os.path.basename(playlist)] = last_interesting_lines.next().strip()
+				# wrap in an iterator that only passes the hls_fragment_threshold'th interested line
+				last_interesting_lines = itertools.islice(interesting_lines, hls_fragment_threshold, hls_fragment_threshold+1)
+
+				# fetch that single line and store it
+				interesting_segments[filebasename(playlist)] = last_interesting_lines.next().strip()
+		except IOError:
+			# no, can't read it, ignore that file
+			continue
 
 	#print interesting_segments
 	# regex to parse interesting parts of ngix access-log
@@ -121,7 +136,7 @@ def count_hls_viewers():
 
 			for stream, segment in interesting_segments.iteritems():
 				if segment == filename:
-					viewer_counts[os.path.basename(stream)] += 1
+					viewer_counts[filebasename(stream)] += 1
 
 	return viewer_counts
 
