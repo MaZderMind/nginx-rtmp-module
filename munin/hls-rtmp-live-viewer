@@ -213,7 +213,7 @@ def count_rtmp_viewers():
 		# find all clients connected to this stream
 		for client in stream.findall('client'):
 			# ignore local pull-relay
-			if client.find('flashver').text == 'ngx-local-relay':
+			if not client.find('flashver') is None and client.find('flashver').text == 'ngx-local-relay':
 				continue
 
 			# ignore broadcastin clients
