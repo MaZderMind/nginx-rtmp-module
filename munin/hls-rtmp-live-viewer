@@ -2,6 +2,7 @@
 import sys
 import os
 import re
+from glob import glob
 import urllib
 import datetime
 import itertools
@@ -11,7 +12,7 @@ import collections
 # TODO: read from plugin-config
 rtmp_stat_url = "http://127.0.0.1/stats/rtmp"
 hlsAccessLog = "/var/log/nginx/access.log"
-hls_playlists = ["/tmp/hls/bla.m3u8"]
+hls_playlists = glob('/tmp/hls/*.m3u8')
 hls_fragment_size = 10 # seconds
 hls_fragment_windows = 60 # seconds
 
