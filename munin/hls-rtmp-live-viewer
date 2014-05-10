@@ -277,8 +277,8 @@ elif len(sys.argv) == 2 and sys.argv[1] == "config":
 else:
 	counts = count_rtmp_viewers();
 	for stream in list_rtmp_streams():
-		print 'rtmp-{0} {1}'.format(stream, counts[stream])
+		print 'rtmp-{0}.value {1}'.format(stream, counts[stream])
 
 	counts = count_hls_viewers();
 	for stream in list_hls_streams():
-		print 'hls-{0} {1}'.format(stream, counts[stream])
+		print 'hls-{0}.value {1}'.format(stream, counts[stream])
