@@ -224,6 +224,33 @@ def count_rtmp_viewers():
 
 ##### munin interface #####
 if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
+	# test if we can access the acces-log, at least one m3u8-playlist and the rtmp-stats
+	try:
+		open(hls_accesslog)
+	except IOError:
+		print "no (can't open hls_accesslog: {0})".format(hls_accesslog)
+		sys.exit(0)
+
+	# test if we can glob any playlists
+	if len(hls_playlists) == 0:
+		print "no (can't find any hls_playlists)"
+		sys.exit(0)
+
+	# test if we can open all playlists
+	for playlist in hls_playlists:
+		try:
+			open(playlist)
+		except IOError:
+			print "no (can't open any hls_playlist: {0})".format(playlist)
+			sys.exit(0)
+
+	# test if we can access the rtmp-stats-url
+	sock = urllib.urlopen(rtmp_stat_url)
+	if sock.getcode() != 200:
+		print "no (can't access rtmp_stat_url: {0})".format(rtmp_stat_url)
+		sys.exit(0)
+
+	# yes, everything okay
 	print "yes"
 
 elif len(sys.argv) == 2 and sys.argv[1] == "config":
