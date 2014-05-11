@@ -313,16 +313,16 @@ if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
 
 elif len(sys.argv) == 2 and sys.argv[1] == "config":
 	print 'graph_title Live RTMP/HLS Viewer'
-	print 'graph_vlabel count'
+	print 'graph_vlabel Live Viewer'
 	print 'graph_category nginx'
 
 	for stream in list_rtmp_streams():
-		print 'rtmp-{0}.label RTMP-Viewer ({0})'.format(stream)
+		print 'rtmp-{0}.label RTMP ({0})'.format(stream)
 		print 'rtmp-{0}.draw AREASTACK'.format(stream)
 		print 'rtmp-{0}.type GAUGE'.format(stream)
 
 	for stream in list_hls_streams():
-		print 'hls-{0}.label HLS-Viewer ({0})'.format(stream)
+		print 'hls-{0}.label HLS ({0})'.format(stream)
 		print 'hls-{0}.draw AREASTACK'.format(stream)
 		print 'hls-{0}.type GAUGE'.format(stream)
 
