@@ -7,7 +7,7 @@ group root
 #env.RTMP_STAT_URLS http://127.0.0.1/stats/rtmp
 
 # in a multi-worker-environment you'll need this patch and configure the stat-urls like this:
-#env.RTMP_STAT_URLS http://127.0.0.1:9000/stats/rtmp,http://127.0.0.1:9001/stats/rtmp,http://127.0.0.1:9002/stats/rtmp
+#env.RTMP_STAT_URLS http://127.0.0.1:8000/stats/rtmp,http://127.0.0.1:8001/stats/rtmp,http://127.0.0.1:8002/stats/rtmp
 
 # path to the access-log containing the hls-file-logs
 #env.HLS_ACCESSLOG /var/log/nginx/access.log
