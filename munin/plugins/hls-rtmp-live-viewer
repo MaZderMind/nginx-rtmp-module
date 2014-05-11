@@ -18,7 +18,8 @@ import collections
 
 # TODO: read from plugin-config
 # http-url to the nginx-rtmp-statsfile
-rtmp_stat_url = os.getenv('RTMP_STAT_URL') or "http://127.0.0.1/stats/rtmp"
+rtmp_stat_urls = os.getenv('RTMP_STAT_URLS') or "http://127.0.0.1/stats/rtmp"
+rtmp_stat_urls = rtmp_stat_urls.split(',')
 
 # path to the access-log containing the hls-file-logs
 hls_accesslog = os.getenv('HLS_ACCESSLOG') or "/var/log/nginx/access.log"
@@ -227,16 +228,18 @@ def count_hls_viewers():
 
 def list_rtmp_streams():
 	"List all configured rtmp-streams"
-	# load rtmp-stats from worker
-	sock = urllib.urlopen(rtmp_stat_url)
-	doc = ET.parse(sock).getroot()
 
 	# load list of known streams from the statefile
 	known_rtmp_streams = load_streams_from_statefile('rtmp')
 
-	# find all streams and yield their names
-	for stream in doc.findall('server/application/live/stream'):
-		known_rtmp_streams[stream.find('name').text] = True
+	# find all streams from all workers and collect their mames
+	for rtmp_stat_url in rtmp_stat_urls:
+		# load rtmp-stats from worker
+		sock = urllib.urlopen(rtmp_stat_url)
+		doc = ET.parse(sock).getroot()
+
+		for stream in doc.findall('server/application/live/stream'):
+			known_rtmp_streams[stream.find('name').text] = True
 
 	# save list of known streams to statefile
 	return save_streams_to_statefile('rtmp', known_rtmp_streams)
@@ -246,26 +249,28 @@ def count_rtmp_viewers():
 	# viewer-count per stream
 	viewer_counts = collections.Counter()
 
-	sock = urllib.urlopen(rtmp_stat_url)
-	doc = ET.parse(sock).getroot()
+	# connect to all workers
+	for rtmp_stat_url in rtmp_stat_urls:
+		sock = urllib.urlopen(rtmp_stat_url)
+		doc = ET.parse(sock).getroot()
 
-	# find all streams and yield their clients
-	for stream in doc.findall('server/application/live/stream'):
-		# name of the stream
-		streamname = stream.find('name').text
+		# find all streams and yield their clients
+		for stream in doc.findall('server/application/live/stream'):
+			# name of the stream
+			streamname = stream.find('name').text
 
-		# find all clients connected to this stream
-		for client in stream.findall('client'):
-			# ignore local pull-relay
-			if not client.find('flashver') is None and client.find('flashver').text == 'ngx-local-relay':
-				continue
+			# find all clients connected to this stream
+			for client in stream.findall('client'):
+				# ignore local pull-relay
+				if not client.find('flashver') is None and client.find('flashver').text == 'ngx-local-relay':
+					continue
 
-			# ignore broadcastin clients
-			if not client.find('publishing') is None:
-				continue
+				# ignore broadcastin clients
+				if not client.find('publishing') is None:
+					continue
 
-			# count a live-viewer
-			viewer_counts[streamname] += 1
+				# count a live-viewer
+				viewer_counts[streamname] += 1
 
 	return viewer_counts
 
@@ -292,11 +297,12 @@ if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
 			print "no (can't open any hls_playlist: {0})".format(playlist)
 			sys.exit(0)
 
-	# test if we can access the rtmp-stats-url
-	sock = urllib.urlopen(rtmp_stat_url)
-	if sock.getcode() != 200:
-		print "no (can't access rtmp_stat_url: {0})".format(rtmp_stat_url)
-		sys.exit(0)
+	# test if we can access all rtmp-stats-urls
+	for rtmp_stat_url in rtmp_stat_urls:
+		sock = urllib.urlopen(rtmp_stat_url)
+		if sock.getcode() != 200:
+			print "no (can't access rtmp_stat_url: {0})".format(rtmp_stat_url)
+			sys.exit(0)
 
 	# yes, everything okay
 	print "yes"
