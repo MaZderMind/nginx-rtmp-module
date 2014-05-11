@@ -16,6 +16,8 @@ import itertools
 import subprocess
 import collections
 
+print os.environ.get('MUNIN_PLUGSTATE')
+
 # TODO: read from plugin-config
 # http-url to the nginx-rtmp-statsfile
 rtmp_stat_url = "http://127.0.0.1/stats/rtmp"
