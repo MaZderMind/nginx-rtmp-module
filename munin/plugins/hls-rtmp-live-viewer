@@ -128,7 +128,6 @@ def save_streams_to_statefile(streamtype, streamsdict):
 ##### numbercrunching methods #####
 def list_hls_streams():
 	"List all configured hls-streams"
-
 	# load list of known streams from the statefile
 	known_hls_streams = load_streams_from_statefile('hls')
 
@@ -227,6 +226,7 @@ def count_hls_viewers():
 
 
 def list_rtmp_streams():
+	"List all configured rtmp-streams"
 	# load rtmp-stats from worker
 	sock = urllib.urlopen(rtmp_stat_url)
 	doc = ET.parse(sock).getroot()
@@ -242,6 +242,7 @@ def list_rtmp_streams():
 	return save_streams_to_statefile('rtmp', known_rtmp_streams)
 
 def count_rtmp_viewers():
+	"Count the number of live-viewer for each configured and available rtmp-stream"
 	# viewer-count per stream
 	viewer_counts = collections.Counter()
 
