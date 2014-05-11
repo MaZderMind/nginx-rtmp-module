@@ -272,7 +272,7 @@ elif len(sys.argv) == 2 and sys.argv[1] == "config":
 		print 'hls-{0}.draw AREASTACK'.format(stream)
 		print 'hls-{0}.type GAUGE'.format(stream)
 
-	print 'graph_args --base 1000'
+	print 'graph_args --base 1000 -l 0'
 
 else:
 	counts = count_rtmp_viewers();
