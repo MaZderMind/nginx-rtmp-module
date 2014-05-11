@@ -299,8 +299,12 @@ if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
 
 	# test if we can access all rtmp-stats-urls
 	for rtmp_stat_url in rtmp_stat_urls:
-		sock = urllib.urlopen(rtmp_stat_url)
-		if sock.getcode() != 200:
+		try:
+			sock = urllib.urlopen(rtmp_stat_url)
+			if sock.getcode() != 200:
+				print "no (can't access rtmp_stat_url: {0})".format(rtmp_stat_url)
+				sys.exit(0)
+		except IOError:
 			print "no (can't access rtmp_stat_url: {0})".format(rtmp_stat_url)
 			sys.exit(0)
 
