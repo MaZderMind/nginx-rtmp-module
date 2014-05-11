@@ -1,3 +1,25 @@
 [hls-rtmp-live-viewer]
+# /tmp/hls/ is owned by root:root by default
 user root
 group root
+
+# comma-separated list of urls to ask for rtmp-statistics
+#env.RTMP_STAT_URLS http://127.0.0.1/stats/rtmp
+
+# in a multi-worker-environment you'll need this patch and configure the stat-urls like this:
+#env.RTMP_STAT_URLS http://127.0.0.1:9000/stats/rtmp,http://127.0.0.1:9001/stats/rtmp,http://127.0.0.1:9002/stats/rtmp
+
+# path to the access-log containing the hls-file-logs
+#env.HLS_ACCESSLOG /var/log/nginx/access.log
+
+# list of hls-playlists, glob-wildcards are allowed
+#env.HLS_PLAYLISTS /tmp/hls/*.m3u8
+
+# configured target-size of a fragment
+#env.HLS_FRAGMENT_SIZE 10
+
+# how log should viewers be counted as "live"
+# viewer will seem to stay online for that number of seconds, even if they have already switched off
+# setting it too low will wipe players out of the statistics which lag behind
+# do not set lower then 2×HLS_FRAGMENT_SIZE seconds; good results can be achieved with 30-120 seconds
+#env.HLS_FRAGMENT_WINDOW 30
