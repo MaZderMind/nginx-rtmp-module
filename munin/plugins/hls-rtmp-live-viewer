@@ -16,8 +16,6 @@ import itertools
 import subprocess
 import collections
 
-print os.environ.get('MUNIN_PLUGSTATE')
-
 # TODO: read from plugin-config
 # http-url to the nginx-rtmp-statsfile
 rtmp_stat_url = os.getenv('RTMP_STAT_URL') or "http://127.0.0.1/stats/rtmp"
@@ -92,19 +90,54 @@ def filebasename(path):
 	"Return the filename without extension from a given path"
 	return os.path.splitext(os.path.basename(path))[0]
 
+def load_streams_from_statefile(streamtype):
+	"Load the list of known streams from the plugin's statefile as a dict (for easy duplication check)"
+	# when a munin-plugin removes a dataset from the config, it is removed from all graphs
+	# including past ones. To avoid this, we keep a record of all streams that were visible
+	# in the past. to completely remove stream-names, delete them from
+	# /var/lib/munin-node/plugin-state/root/{hls,rtmp}_streams
+
+	statefile = os.path.join(os.getenv('MUNIN_PLUGSTATE'), streamtype+'_streams')
+	known_streams = {}
+	try:
+		with open(statefile, 'r') as f:
+			# construct a dict with the playlist-names a keys for easy duplication check
+			for line in f.readlines():
+				known_streams[line.strip()] = True
+	except IOError:
+		pass
+
+	return known_streams
+
+
+def save_streams_to_statefile(streamtype, streamsdict):
+	"Save the list of known streams to the plugin's statefile (takes a dict for easy duplication check). returns dict's keys."
+	# see load_streams_from_statefile for explanation
+
+	statefile = os.path.join(os.getenv('MUNIN_PLUGSTATE'), streamtype+'_streams')
+	try:
+		os.makedirs(os.path.dirname(statefile))
+	except OSError:
+		pass
+
+	with open(statefile, 'w') as f:
+		f.write("\n".join(streamsdict.keys()))
+
+	return streamsdict.keys()
+
 ##### numbercrunching methods #####
 def list_hls_streams():
-	"List all configured and available hls-streams"
+	"List all configured hls-streams"
+
+	# load list of known streams from the statefile
+	known_hls_streams = load_streams_from_statefile('hls')
+
 	# iterate over all configured playlists
 	for playlist in hls_playlists:
-		# try to open the file
-		try:
-			with open(playlist):
-				# yep, can be read
-				yield filebasename(playlist)
-		except IOError:
-			# no, can't read it, ignore that file
-			continue
+		known_hls_streams[filebasename(playlist)] = True
+
+	# save list of known streams to statefile
+	return save_streams_to_statefile('hls', known_hls_streams)
 
 
 def count_hls_viewers():
@@ -194,12 +227,19 @@ def count_hls_viewers():
 
 
 def list_rtmp_streams():
+	# load rtmp-stats from worker
 	sock = urllib.urlopen(rtmp_stat_url)
 	doc = ET.parse(sock).getroot()
 
+	# load list of known streams from the statefile
+	known_rtmp_streams = load_streams_from_statefile('rtmp')
+
 	# find all streams and yield their names
 	for stream in doc.findall('server/application/live/stream'):
-		yield stream.find('name').text
+		known_rtmp_streams[stream.find('name').text] = True
+
+	# save list of known streams to statefile
+	return save_streams_to_statefile('rtmp', known_rtmp_streams)
 
 def count_rtmp_viewers():
 	# viewer-count per stream
