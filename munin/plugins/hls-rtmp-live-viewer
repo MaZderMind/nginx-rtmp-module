@@ -197,7 +197,11 @@ def count_hls_viewers():
 		# read through the lines backwards
 		for line in reversed_lines(f):
 			# parse line by line
-			(ip, ident, username, tstamp, method, path) = re.match(exp, line).groups()
+                        match = re.match(exp, line)
+                        if not match:
+                                 break
+
+                        (ip, ident, username, tstamp, method, path) = match.groups()
 
 			# parse date
 			tstamp = parse_logdate(tstamp)
