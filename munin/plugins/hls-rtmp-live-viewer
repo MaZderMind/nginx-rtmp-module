@@ -104,7 +104,9 @@ def load_streams_from_statefile(streamtype):
 		with open(statefile, 'r') as f:
 			# construct a dict with the playlist-names a keys for easy duplication check
 			for line in f.readlines():
-				known_streams[line.strip()] = True
+				line = line.strip()
+				if len(line) > 0:
+					known_streams[line] = True
 	except IOError:
 		pass
 
