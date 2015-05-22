@@ -224,7 +224,7 @@ def count_hls_viewers():
 
 			# test the filename against all fragement-filenames we're intérested in
 			for stream, segment in interesting_segments.iteritems():
-				if segment == filename:
+				if os.path.basename(segment) == filename:
 					# and count one up for that stream
 					viewer_counts[filebasename(stream)] += 1
 
